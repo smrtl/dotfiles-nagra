@@ -76,6 +76,14 @@ _parse_ini() {
   return 0
 }
 
+_log_error() {
+  echo "$fg[red]$@$reset_color" >&2
+}
+
+_log_info() {
+  echo "$fg[green]$@$reset_color"
+}
+
 # ------------------------------------------------
 # General aliases
 # ------------------------------------------------
@@ -86,7 +94,6 @@ alias ll="ls -l"
 
 alias gi="grep -i"
 
-alias catc="pygmentize -g"
 catnb() {cat $1 | jq -r '.cells[].source | join("--")'}
 
 # Terraform/Terragrunt
@@ -94,10 +101,24 @@ alias tf="terraform"
 alias tg="terragrunt"
 alias tga="tg apply"
 
+# terragrunt dir navigation
+PRODUCT_INFRA_DIR="$code/product-infra"
+TERRAGRUNT_LIVE_DIR="${PRODUCT_INFRA_DIR}/terraform/live"
+alias tgprodeu="cd ${TERRAGRUNT_LIVE_DIR}/aws-prod/eu-west-1/production/"
+alias tgprodus="cd ${TERRAGRUNT_LIVE_DIR}/aws-prod/us-east-1/production/"
+alias tgstaging="cd ${TERRAGRUNT_LIVE_DIR}/aws-preprod/eu-west-1/staging/"
+alias tgperftest="cd ${TERRAGRUNT_LIVE_DIR}/aws-dev/eu-west-1/perftest/"
+alias tglabeu="cd ${TERRAGRUNT_LIVE_DIR}/aws-lab/eu-west-1/lab/"
+alias tglabus="cd ${TERRAGRUNT_LIVE_DIR}/aws-lab/us-east-1/lab/"
+alias tglabdevus="cd ${TERRAGRUNT_LIVE_DIR}/aws-dev/us-east-1/lab/"
+alias tginfra="cd ${TERRAGRUNT_LIVE_DIR}/aws-lab/eu-west-1/infra/"
+alias tglive="cd ${TERRAGRUNT_LIVE_DIR}"
+alias tgmodules="cd ${PRODUCT_INFRA_DIR}/terraform/modules"
+
 # Git
-alias gb="git branch -vv"
-alias gbclean="git checkout master && git pull && echo \"\\nDeleted branches:\" && git branch --merged | grep -v master | xargs git branch -d && echo \"\\nCurrent branches:\" && gb"
-alias gbr="if [ -z \"\$(git status --porcelain)\" ]; then git checkout master && git pull && git checkout - && git rebase master -i; else echo Not clean; fi"
+alias gbv="git branch -vv"
+alias gbclean="gcm && git pull --prune && echo \"\\nCleaning merged branches:\" && git branch --merged | grep -v master | xargs git branch -d && echo \"\\nCurrent branches:\" && gb"
+alias grbmi="if [ -z \"\$(git status --porcelain)\" ]; then gcm && gl && git checkout - && grbm -i; else echo Not clean; fi"
 
 # Json logs
 alias jlog="fblog"
@@ -208,6 +229,10 @@ aws_spark() {
 
   echo -e "${fg[green]}Getting token for profile $1 ...${reset_color}"
   local role=$(aws configure get $1.role_arn)
+  if [ -z "$role" ]; then
+    echo "Role not found"
+    return 1
+  fi
   local token=$(aws sts assume-role --role-arn $role --role-session-name s3_access --duration 900)
   local access_key_id=$(echo $token | jq -r .Credentials.AccessKeyId)
   local secret_access_key=$(echo $token | jq -r .Credentials.SecretAccessKey)
@@ -231,7 +256,7 @@ alias k=kubectl
 alias ka="kubectl --all-namespaces=true"
 
 alias kg="k get"
-alias kgn="kg nodes -o custom-columns-file=$HOME/.config/k8s-node-columns.txt"
+alias kgn="kg nodes -o custom-columns-file=$HOME/.config/k8s-node-columns.txt --sort-by=.metadata.creationTimestamp"
 alias kgp="kg pods"
 alias kgd="kg deployments"
 alias kgs="kg services"
@@ -270,53 +295,24 @@ alias kslf="ks logs -f"
 alias kspf="ks port-forward"
 
 kx() {
-  local base
   if [ -n "$1" ]; then
     if [[ "$1" == "minikube" || "$1" == "local" ]]; then
-      base="local"
-    elif [ -f "$code/product-chart/envs/$1/kubeconfig.yaml" ]; then
-      base="$code/product-chart"
-    elif [ -f "$code/lab-chart/envs/$1/kubeconfig.yaml" ]; then
-      base="$code/lab-chart"
-    elif [ -f "$code/infra-chart/envs/$1/kubeconfig.yaml" ]; then
-      base="$code/infra-chart"
-    fi
-    
-    if [[ $base == "local" ]]; then
       export KUBECONFIG=""
-      export KAFKA_CONNECT_URL=""
-    elif [ -n "$base" ]; then
-      local cluster="$base/envs/$1/kubeconfig.yaml"
-      local secrets="$base/envs/$1/secrets.yaml"
-      local secretsInfra="$base/envs/$1/secrets.infra.yaml"
-
-      export KUBECONFIG="$cluster"
-
-      if [ ! -f "$secretsInfra" ]; then
-        echo "${fg[red]}Warning: infra secrets file '$secretsInfra' not found${reset_color}"
-        export KAFKA_CONNECT_URL=""
-      else
-        local credentials=$(sops -d "$secretsInfra" | yq -r '.global.kafka_connect.url' | sed 's~^https://\([^:]*:[^@]*\)@.*$~\1~')
-        export KAFKA_CONNECT_URL="http://$credentials@localhost:4443"
-      fi
-
-      if [ ! -f "$secrets" ]; then
-        echo "${fg[red]}Warning: secrets file '$secrets' not found${reset_color}"
-        export KAFKA_API_TOKEN=""
-      else
-        export KAFKA_API_TOKEN=$(sops -d "$secrets" | yq -r '.global.kafka.api_token')
-      fi
+    elif [ -f "$code/insight-deploy/envs/$1/kubeconfig.yaml" ]; then
+      export KUBECONFIG="$code/insight-deploy/envs/$1/kubeconfig.yaml"      
     else
       echo "${fg[red]}Error: kubernetes cluster '$1' not found${reset_color}"
     fi
-  fi
 
-  echo -n "${fg[green]}Current context: "
-  echo "${fg[cyan]}$(kubectl config current-context 2>/dev/null || echo none)${reset_color}"
+    kubectl config use-context $(kubectl config get-contexts | awk '/kubernetes-admin/ {print $2}') \
+      | sed "s~^\(.*\)\"\([^\"]*\)\"\(.*\)~${fg[green]}\1${fg[cyan]}\2${fg[green]}\3${reset_color}~"
+  else
+    echo "${fg[green]}Current context: ${fg[cyan]}$(kubectl config current-context)${reset_color}"
+  fi
 }
 
-kdeb() {
-  local name=dbgdebian
+kdev() {
+  local name=dev-sam
   for v in "$@"; do declare "${v%%=*}=${v#*=}"; done
 
   if [ $# -eq 0 ]; then
@@ -342,7 +338,7 @@ kdeb() {
       fi
       echo "  containers:"
       echo "  - name: debian"
-      echo "    image: debian:10"
+      echo "    image: smrtl/debian-dev"
       echo '    command: ["/bin/sh"]'
       echo '    args: ["-c", "while true; do sleep 10; done"]'
       if [ -n "$toleration" ]; then
@@ -356,7 +352,7 @@ kdeb() {
   elif [[ $1 == "delete" ]]; then
     k delete pod $name
   else
-    echo "usage: kdeb [create|delete] [node_selector]"
+    echo "usage: kdeb [create|delete] [label=key=value] [toleration=key=value]"
   fi
 }
 
@@ -421,103 +417,6 @@ ksshd() {
 }
 
 # ------------------------------------------------
-# Kafka
-# ------------------------------------------------
-
-kafka_proxy() {
-  local proxy=$(kubectl get pods -o name | grep kafka-proxy-deploy)
-  kubectl port-forward $proxy 4443
-}
-
-kafka_topics() {
-  if [ -z "$1" ]; then
-    echo "usage: kafka_ls_topics <env> [--token|--service|--info]"
-    return 1
-  fi
-
-  local dir="$infra/terraform/$1"
-  if [ ! -d "$dir" ]; then
-    echo "invalid env '$1'"
-    return 1
-  fi
-  
-  cd $dir
-
-  local token=$(sops -d secrets.tfvars.json | jq -r .aiven_api_token)
-  local service=$(cat values.infra.yaml | yq -r .global.kafka.service)
-  if [[ "$2" == "--token" ]]; then
-    echo $token
-  elif [[ "$2" == "--service" ]]; then
-    echo $service
-  else 
-    local result=$(http https://api.aiven.io/v1/project/insight/service/$service/topic authorization:"aivenv1 $token")
-    if [[ "$2" == "--info" ]]; then
-      echo $result | jq
-    else
-      echo $result | jq -r '.topics[].topic_name'
-    fi
-  fi
-}
-
-kafka_connectors() {
-  if [ -z "$1" ]; then
-    echo "usage: kafka_connectors <env> [name]"
-    return 1
-  fi
-
-  local dir="$infra/terraform/$1"
-  if [ ! -d "$dir" ]; then
-    echo "invalid env '$1'"
-    return 1
-  fi
-  
-  cd $dir
-
-  local token=$(sops -d secrets.tfvars.json | jq -r .aiven_api_token)
-  local service=$(cat values.infra.yaml | yq -r .global.kafka.service)
-
-  if [ -z "$2" ]; then
-    http https://api.aiven.io/v1/project/insight/service/$service/connectors authorization:"aivenv1 $token"
-  else
-    http https://api.aiven.io/v1/project/insight/service/$service/connectors/$2/status authorization:"aivenv1 $token"
-  fi
-}
-
-kafka_clean() {
-  if [ -z "$1" ]; then
-    echo "usage: kafka_clean <env>"
-    return 1
-  fi
-
-  local dir="$infra/terraform/$1"
-  if [ ! -d "$dir" ]; then
-    echo "invalid env '$1'"
-    return 1
-  fi
-  
-  kx $1
-  cd $dir
-
-  comm -23 \
-    <(http $KAFKA_CONNECT_URL/connectors | jq -r '.[]' | sort) \
-    <(terraform state list | grep topic | cut -d\" -f2 | sort | sed 's/^/s3-connect-by-date-/') | \
-    grep -v 'test' | \
-    read -d '' connectors
-
-  echo "Will delete the following connectors:"
-  echo $connectors
-  echo
-  echo "Do you wanna continue [yN] ?"
-  read -r confirm
-  [[ ! $confirm =~ ^[Yy]$ ]] && return 1
-  echo
-  for connector in $(echo $connectors | xargs); do
-    echo "Deleting $connector ..."
-    http DELETE $KAFKA_CONNECT_URL/connectors/$connector
-  done
-}
-
-# ------------------------------------------------
 # NI
 # ------------------------------------------------
 
@@ -531,7 +430,45 @@ ni_env() {
   export TRAININGMILL_QUAYIO_PASSWORD="$(gopass show quay.io/tokens/nagra+trainingmill)"
   export NEXUS_INSIGHTRW_PWD=$(gopass show nexus/insight-rw)
   export NEXUS_INSIGHTRO_PWD=$(gopass show nexus/insight-ro)
-  export GITHUB_BOT_TOKEN=$(gopass show nexus/insight-ro)
+  export GITHUB_BOT_TOKEN=$(gopass -o show github.com/nagra-insight-bot/api_token)
+  export GITHUB_TOKEN=$GITHUB_BOT_TOKEN
+  export RENOVATE_TOKEN=$GITHUB_BOT_TOKEN
+}
+
+_tf_dir() {
+  local account region env
+  case $1 in
+    us|pus|prod-us|production-us) account=aws-prod; region=us-east-1; env=production ;;
+    p|prod|production) account=aws-prod; region=eu-west-1; env=production ;;
+    s|staging) account=aws-preprod; region=eu-west-1; env=staging ;;
+    perf|perftest|dev) account=aws-dev; region=eu-west-1; env=perftest ;;
+    lab) account=aws-lab; region=eu-west-1; env=lab ;;
+    lab-us) account=aws-lab; region=us-east-1; env=lab ;;
+    *) _log_error "Invalid env: $1"; return 1 ;;
+  esac
+  local dir="$code/product-infra/terraform/live/$account/$region/$env"
+  if [ ! -d "$dir" ]; then
+    _log_error "Directory not found: $dir"
+    return 1
+  fi
+  echo $dir
+}
+
+_values_dir() {
+  local env
+  case $1 in
+    us|pus|prod-us|production-us) env=production-us ;;
+    p|prod|production) env=production ;;
+    s|staging) env=staging ;;
+    perf|perftest|dev) env=perftest ;;
+    *) _log_error "Invalid env: $1"; return 1 ;;
+  esac
+  local dir="$code/insight-deploy/envs/$env"
+  if [ ! -d "$dir" ]; then
+    _log_error "Directory not found: $dir"
+    return 1
+  fi
+  echo $dir
 }
 
 pg() {
@@ -539,22 +476,90 @@ pg() {
     echo "Usage: $0 <data|bi> <env> [db_name]"
     return 1
   fi
-  local key port env
+  local key port
   case $1 in
     data) key=pg_data_db; port=5432 ;;
     bi|redshift) key=bi_db; port=5439 ;;
     *) echo "Invalid db type."; return 1 ;;
   esac
-  case $2 in
-    us|pus|prod-us|production-us) env=production-us ;;
-    p|prod|production) env=production ;;
-    s|staging) env=staging ;;
-    perf|perftest|dev) env=perftest ;;
-    *) echo "Invalid env: $2"; return 1 ;;
-  esac
+
+  local dir=$(_values_dir $2)
+  [ -n "$dir" ] || return 1
+
   echo "Connecting to local ${fg[green]}$key$reset_color" \
-       "with ${fg[green]}$env$reset_color credentials"
-  local secrets="$code/product-chart/envs/$env/secrets.infra.yaml"
+       "with ${fg[green]}$(basename $dir)$reset_color credentials"
+  local secrets="$code/insight-deploy/envs/$2/secrets.infra.yaml"
+  if [ ! -f "$secrets" ]; then
+    echo "Secret file '$secrets' not found, aborting."
+    return 1
+  fi
+
   PGPASSWORD=$(sops -d $secrets | yq -r ".global.$key.password") \
     psql -h localhost -p $port -U $(sops -d $secrets | yq -r ".global.$key.user") $3
+}
+
+alias kafka_pf='kubectl port-forward svc/ni-rta-kafka-proxy 4443'
+
+kafka_url() {
+  if [ -z "$1" ]; then echo "Usage: $0 <env>" && return 1; fi
+  
+  local values_dir=$(_values_dir $1)
+  [ -n "$values_dir" ] || return 1
+  
+  sops -d "$values_dir/secrets.infra.yaml" \
+    | yq -r '.global.kafka_connect.url' \
+    | sed -E 's~https?://([^@]*)@.*~http://\1@localhost:4443~'
+}
+
+kafka_status() {
+  if [ -z "$1" ]; then echo "Usage: $0 <env>" && return 1; fi
+
+  local kafka_connect_url=$(kafka_url $1)
+  for connector in $(http $kafka_connect_url/connectors | jq -r '.[]' | sort); do
+    echo -n "$connector: "
+    http $kafka_connect_url/connectors/$connector/status | jq -r '.connector.state'
+  done
+}
+
+kafka_clean() {
+  if [ -z "$1" ]; then echo "Usage: $0 <env>" && return 1; fi
+
+  local tf_dir=$(_tf_dir $1)
+  [ -n "$tf_dir" ] || return 1
+  local values_dir=$(_values_dir $1)
+  [ -n "$values_dir" ] || return 1
+
+  _log_info "Starting kafka-connect port-forwarding ..."
+  cleanup() { pkill -P $$;  }
+  trap cleanup SIGINT SIGTERM EXIT
+  KUBECONFIG="$values_dir/kubeconfig.yaml" kafka_pf &
+  sleep 3
+
+  _log_info "Retrieving kafka-connect connectors ..."
+  local kafka_connect_url=$(sops -d "$values_dir/secrets.infra.yaml" \
+    | yq -r '.global.kafka_connect.url' \
+    | sed -E 's~https?://([^@]*)@.*~http://\1@localhost:4443~')
+  local existing_connectors=$(http $kafka_connect_url/connectors | jq -r '.[]' | sort)
+
+  _log_info "Retrieving configured connectors form terraform ..."
+  local defined_connectors=$(cd "$tf_dir/ni_product" && terragrunt state list \
+    | grep aiven_kafka_topic | cut -d\" -f2 | sort | sed 's/^/s3-connect-by-date-/')
+  
+  comm -23 \
+    <(echo $existing_connectors) \
+    <(echo $defined_connectors) | \
+    read -d '' connectors
+
+  _log_info "Will delete the following connectors:"
+  echo $connectors
+  echo
+  echo "Do you wanna continue [yN] ?"
+  read -r confirm
+  [[ ! $confirm =~ ^[Yy]$ ]] && return 1
+
+  echo
+  for connector in $(echo $connectors | xargs); do
+    _log_info "Deleting '$connector' ..."
+    http DELETE "$kafka_connect_url/connectors/$connector"
+  done
 }
