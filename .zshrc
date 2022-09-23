@@ -416,6 +416,18 @@ ksshd() {
   fi
 }
 
+ksecret() {
+  if [ -z "$1" ]; then echo "Usage: ksecret <secret> [key]"; return 1; fi
+  local secret=$1
+  local key=$2
+  if [ -z "$key" ]; then
+    echo "Available keys in '$secret':"
+    kubectl get secret $secret -o jsonpath='{.data}' | jq -r 'keys[]'
+  else
+    kubectl get secret $secret -o jsonpath='{.data}' | jq -r ".$key" | base64 -D
+  fi
+}
+
 # ------------------------------------------------
 # NI
 # ------------------------------------------------
