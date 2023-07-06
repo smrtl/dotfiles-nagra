@@ -45,6 +45,9 @@ bindkey "[C" forward-word
 bindkey "^[a" beginning-of-line
 bindkey "^[e" end-of-line
 
+# Other ZSH opts
+unsetopt autocd
+
 # ------------------------------------------------
 # Helper functions
 # ------------------------------------------------
@@ -101,33 +104,91 @@ alias tf="terraform"
 alias tg="terragrunt"
 alias tga="tg apply"
 
-# terragrunt dir navigation
-PRODUCT_INFRA_DIR="$code/product-infra"
-TERRAGRUNT_LIVE_DIR="${PRODUCT_INFRA_DIR}/terraform/live"
-alias tgprodeu="cd ${TERRAGRUNT_LIVE_DIR}/aws-prod/eu-west-1/production/"
-alias tgprodus="cd ${TERRAGRUNT_LIVE_DIR}/aws-prod/us-east-1/production/"
-alias tgstaging="cd ${TERRAGRUNT_LIVE_DIR}/aws-preprod/eu-west-1/staging/"
-alias tgperftest="cd ${TERRAGRUNT_LIVE_DIR}/aws-dev/eu-west-1/perftest/"
-alias tglabeu="cd ${TERRAGRUNT_LIVE_DIR}/aws-lab/eu-west-1/lab/"
-alias tglabus="cd ${TERRAGRUNT_LIVE_DIR}/aws-lab/us-east-1/lab/"
-alias tglabdevus="cd ${TERRAGRUNT_LIVE_DIR}/aws-dev/us-east-1/lab/"
-alias tginfra="cd ${TERRAGRUNT_LIVE_DIR}/aws-lab/eu-west-1/infra/"
-alias tglive="cd ${TERRAGRUNT_LIVE_DIR}"
-alias tgmodules="cd ${PRODUCT_INFRA_DIR}/terraform/modules"
+# Json logs
+alias jlog="fblog"
+alias jloga="fblog --dump-all"
+alias jlogs="fblog -t@timestamp -a 'exception > stacktrace'"
+alias jlogp="fblog -tasctime -llevelname"
 
-# Git
+# ------------------------------------------------
+# Git & Github
+# ------------------------------------------------
+
 alias gbv="git branch -vv"
 alias gbclean="gcm && git pull --prune && echo \"\\nCleaning merged branches:\" && git branch --merged | grep -v master | xargs git branch -d && echo \"\\nCurrent branches:\" && gb"
 alias grbmi="if [ -z \"\$(git status --porcelain)\" ]; then gcm && gl && git checkout - && grbm -i; else echo Not clean; fi"
 
-# Json logs
-alias jlog="fblog"
-alias jloga="fblog --dump-all"
-alias jlogs="fblog -t@timestamp"
-alias jlogp="fblog -tasctime -llevelname"
+gfix() {
+  local commit=$1
+  if [ -z "${commit}" ]; then
+    echo "Usage: gfix <commit>"
+    return 1
+  fi
+  git commit --fixup ${commit}
+  git rebase -i --autosquash ${commit}^
+}
+
+gh3rd() {
+  local prs=()
+  pushd "$ni/insight-deploy" >/dev/null
+
+  # gather pull requests
+  for arg in "$@"; do
+    local filter='(.labels == []) and (.title | contains("third party"))'
+    case "$arg" in
+      i*)
+        echo "Getting 3rd party charts PRs for infra env"
+        filter+=' and (.title | contains("infra"))'
+        ;;
+      p*)
+        echo "Getting 3rd party charts PRs for prod envs"
+        filter+=' and (.title | contains("production"))'
+        ;;
+      l*)
+        echo "Getting 3rd party charts PRs for lab envs"
+        filter+=' and (.title | contains("lab"))'
+        ;;
+      *)
+        echo "Getting 3rd party charts PRs for dev envs"
+        filter+=' and ((.title | contains("dev")) or (.title | contains("staging")))'
+        ;;
+    esac
+    prs+=($(gh pr list --json number,title,labels --jq '.[] | select('$filter') | .number'))
+  done
+
+  # merging PRs
+  for pr in "${prs[@]}"; do
+    gh pr view $pr
+
+    echo -n "Merge ? (y/any) "
+    read confirm
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+      gh pr merge -m -d $pr
+    fi
+  done
+
+  popd >/dev/null
+}
+
 
 # ------------------------------------------------
-# PyENV & Python
+# General Helpers
+# ------------------------------------------------
+
+parse_ts() {
+  TZ=UTC date -r $(( $1 > 100000000000 ? $1/1000 : $1 ))
+}
+
+to_ts() {
+  TZ=UTC date -j -f "%Y-%m-%d %H:%M:%S" "$@" +"%s"
+}
+
+parse_jwt() {
+  echo $1 | jq -R 'split(".") | .[0],.[1] | @base64d | fromjson'
+}
+
+# ------------------------------------------------
+# PyENV, Python & Micromamba
 # ------------------------------------------------
 
 alias brew='env PATH="${PATH//$PYENV_ROOT\/shims:/}" brew' # disable pyenv for brew
@@ -158,34 +219,41 @@ venv() {
   source $name/bin/activate
 }
 
+# Micromamba
+# Generated with: micromamba shell init -s zsh -p ~/.micromamba
+export MAMBA_EXE="/usr/local/bin/micromamba";
+export MAMBA_ROOT_PREFIX="/Users/ssuter/.micromamba";
+eval "$("$MAMBA_EXE" shell hook --shell zsh --prefix "$MAMBA_ROOT_PREFIX" 2> /dev/null)"
+alias mamba=micromamba
+
 # ------------------------------------------------
 # AWS
 # ------------------------------------------------
 
-() {
-  local -A _aws_config
+# () {
+#   local -A _aws_config
 
-  # avoid using aws-cli here as it is very slow
-  _parse_ini $HOME/.aws/credentials _aws_config
-  _parse_ini $HOME/.aws/config _aws_config
+#   # avoid using aws-cli here as it is very slow
+#   _parse_ini $HOME/.aws/credentials _aws_config
+#   _parse_ini $HOME/.aws/config _aws_config
 
-  export AWS_REGION="${_aws_config[default___region]}"
-  export AWS_ACCESS_KEY_ID="${_aws_config[default___aws_access_key_id]}"
-  export AWS_SECRET_ACCESS_KEY="${_aws_config[default___aws_secret_access_key]}"
-  export AWS_PAGER=""
-}
+#   export AWS_REGION="${_aws_config[default___region]}"
+#   export AWS_ACCESS_KEY_ID="${_aws_config[default___aws_access_key_id]}"
+#   export AWS_SECRET_ACCESS_KEY="${_aws_config[default___aws_secret_access_key]}"
+#   export AWS_PAGER=""
+# }
 
-aws_profile() {
-  if [ -n "$1" ]; then
-    export AWS_PROFILE=$1
-    export AWS_ACCESS_KEY_ID=$(aws configure get $1.aws_access_key_id)
-    export AWS_SECRET_ACCESS_KEY=$(aws configure get $1.aws_secret_access_key)
-    export AWS_REGION=$(aws configure get $AWS_PROFILE.region || aws configure get default.region)
-  fi
+# aws_profile() {
+#   if [ -n "$1" ]; then
+#     export AWS_PROFILE=$1
+#     export AWS_ACCESS_KEY_ID=$(aws configure get $1.aws_access_key_id)
+#     export AWS_SECRET_ACCESS_KEY=$(aws configure get $1.aws_secret_access_key)
+#     export AWS_REGION=$(aws configure get $AWS_PROFILE.region || aws configure get default.region)
+#   fi
 
-  echo "AWS profile: ${fg[green]}${AWS_PROFILE:-default}${reset_color}"
-  echo "AWS region: ${fg[green]}${AWS_REGION}${reset_color}"
-}
+#   echo "AWS profile: ${fg[green]}${AWS_PROFILE:-default}${reset_color}"
+#   echo "AWS region: ${fg[green]}${AWS_REGION}${reset_color}"
+# }
 
 # see https://serverfault.com/questions/679989/most-efficient-way-to-batch-delete-s3-files
 aws_ls() {
@@ -251,9 +319,16 @@ aws_spark() {
 # Kubernetes
 # ------------------------------------------------
 
-kn() { if [ -n "$1" ]; then alias k="kubectl -n$1"; else alias k=kubectl; fi }
-alias k=kubectl
-alias ka="kubectl --all-namespaces=true"
+kn() {
+  if [ -n "$1" ]; then
+    export KUBECMD="kubectl --context admin-sso -n$1"
+  else
+    export KUBECMD="kubectl --context admin-sso"
+  fi
+  alias k="$KUBECMD"
+}
+kn
+alias ka="k --all-namespaces=true"
 
 alias kg="k get"
 alias kgn="kg nodes -o custom-columns-file=$HOME/.config/k8s-node-columns.txt --sort-by=.metadata.creationTimestamp"
@@ -263,7 +338,8 @@ alias kgs="kg services"
 alias kgi="kg ingress"
 alias kgj="kg job,cronjob"
 
-alias wkgp="watch -n2 kubectl get pods"
+alias wkgp="watch -n2 $KUBECMD get pods"
+alias kgiv="kgi -ojson | jq -r '.items[] | [.metadata.name,.spec.rules[0].host//\"(none)\",.spec.rules[0].http.paths[0].path,.metadata.annotations[\"konghq.com/plugins\"]] | @tsv' | column -t"
 
 alias kd="k describe"
 alias kdn="kd node"
@@ -283,7 +359,7 @@ alias kl="k logs"
 alias klf="kl -f"
 alias kpf="k port-forward"
 
-alias ks="kubectl -nspark"
+alias ks="k -nspark"
 alias ksg="ks get"
 alias ksgp="ksg pods"
 alias ksd="ks describe"
@@ -298,17 +374,26 @@ kx() {
   if [ -n "$1" ]; then
     if [[ "$1" == "minikube" || "$1" == "local" ]]; then
       export KUBECONFIG=""
-    elif [ -f "$code/insight-deploy/envs/$1/kubeconfig.yaml" ]; then
-      export KUBECONFIG="$code/insight-deploy/envs/$1/kubeconfig.yaml"      
+    elif [ -f "$ni/insight-deploy/envs/$1/kubeconfig.yaml" ]; then
+      export KUBECONFIG="$ni/insight-deploy/envs/$1/kubeconfig.yaml"      
     else
       echo "${fg[red]}Error: kubernetes cluster '$1' not found${reset_color}"
     fi
 
-    kubectl config use-context $(kubectl config get-contexts | awk '/kubernetes-admin/ {print $2}') \
-      | sed "s~^\(.*\)\"\([^\"]*\)\"\(.*\)~${fg[green]}\1${fg[cyan]}\2${fg[green]}\3${reset_color}~"
-  else
-    echo "${fg[green]}Current context: ${fg[cyan]}$(kubectl config current-context)${reset_color}"
+    k config use-context $(k config get-contexts | cut -b11- | awk '/kubernetes-admin-sso/ {print $1}') >/dev/null
   fi
+
+  local current=$(k config get-contexts | grep '*')
+  if [ -z "$current" ]; then
+    echo "${fg[yellow]}No context${reset_color}"
+  else
+    echo "${fg[green]}Current context: ${fg[cyan]}$(echo $current | awk '{print $2 " (" $3 ")"}')${reset_color}"
+  fi
+}
+
+# use AWS SSM to SSH to a k8s node
+kssh() {
+   aws --profile $(k config current-context | cut -d '-' -f1) ssm start-session --target $(k get node $1 -ojson | jq -r ".spec.providerID" | cut -d \/ -f5)
 }
 
 kdev() {
@@ -420,11 +505,20 @@ ksecret() {
   if [ -z "$1" ]; then echo "Usage: ksecret <secret> [key]"; return 1; fi
   local secret=$1
   local key=$2
+
   if [ -z "$key" ]; then
-    echo "Available keys in '$secret':"
-    kubectl get secret $secret -o jsonpath='{.data}' | jq -r 'keys[]'
-  else
-    kubectl get secret $secret -o jsonpath='{.data}' | jq -r ".$key" | base64 -D
+    local keys=($(k get secret $secret -o jsonpath='{.data}' | jq -r 'keys[]'))
+    if [ ${#keys[@]} -eq 1 ]; then
+      echo "selecting key '${keys[1]}'" >&2
+      key="${keys[1]}"
+    else
+      echo "Available keys in '$secret':"
+      for key in "${keys[@]}"; do echo "  - $key"; done
+    fi
+  fi
+
+  if [ -n "$key" ]; then
+    k get secret $secret -o jsonpath="{.data.${key//./\\.}}" | base64 -D
   fi
 }
 
@@ -433,145 +527,38 @@ ksecret() {
 # ------------------------------------------------
 
 ni_env() {
-  echo "Exporting a bunch of secrets: CHART_REPO_PASSWORD, NOTEBOOK_USER_KEY, NOTEBOOK_USER_SECRET, LIVY_USER_KEY, LIVY_USER_SECRET, TRAININGMILL_QUAYIO_PASSWORD, NEXUS_INSIGHTRW_PWD, NEXUS_INSIGHTRO_PWD, GITHUB_BOT_TOKEN"
-  export CHART_REPO_PASSWORD=$(gopass show nexus/insight-ro)
+  echo "Exporting the following secrets in env:"
+  echo " - NOTEBOOK_USER_KEY"
+  echo " - NOTEBOOK_USER_SECRET"
+  echo " - LIVY_USER_KEY"
+  echo " - LIVY_USER_SECRET"
+  echo " - TRAININGMILL_DOCKER_PASSWORD"
+  echo " - NEXUS_INSIGHTRW_PWD"
+  echo " - NEXUS_INSIGHTRO_PWD"
+  echo " - POETRY_HTTP_BASIC_NEXUS_USERNAME"
+  echo " - POETRY_HTTP_BASIC_NEXUS_PASSWORD"
+  echo " - GITHUB_BOT_TOKEN"
+  echo " - GITHUB_TOKEN"
+  echo " - RENOVATE_TOKEN"
+  # AWS
   export NOTEBOOK_USER_KEY="$(aws configure get default.aws_access_key_id)"
   export NOTEBOOK_USER_SECRET="$(aws configure get default.aws_secret_access_key)"
   export LIVY_USER_KEY="$(aws configure get default.aws_access_key_id)"
   export LIVY_USER_SECRET="$(aws configure get default.aws_secret_access_key)"
-  export TRAININGMILL_QUAYIO_PASSWORD="$(gopass show quay.io/tokens/nagra+trainingmill)"
+  # Trainingmill
+  export TRAININGMILL_DOCKER_PASSWORD="$(gopass show quay.io/tokens/nagra+trainingmill)"
+  # Nexus
   export NEXUS_INSIGHTRW_PWD=$(gopass show nexus/insight-rw)
   export NEXUS_INSIGHTRO_PWD=$(gopass show nexus/insight-ro)
+  export POETRY_HTTP_BASIC_NEXUS_USERNAME=insight-ro
+  export POETRY_HTTP_BASIC_NEXUS_PASSWORD=$NEXUS_INSIGHTRO_PWD
+  # Github
   export GITHUB_BOT_TOKEN=$(gopass -o show github.com/nagra-insight-bot/api_token)
   export GITHUB_TOKEN=$GITHUB_BOT_TOKEN
   export RENOVATE_TOKEN=$GITHUB_BOT_TOKEN
 }
 
-_tf_dir() {
-  local account region env
-  case $1 in
-    us|pus|prod-us|production-us) account=aws-prod; region=us-east-1; env=production ;;
-    p|prod|production) account=aws-prod; region=eu-west-1; env=production ;;
-    s|staging) account=aws-preprod; region=eu-west-1; env=staging ;;
-    perf|perftest|dev) account=aws-dev; region=eu-west-1; env=perftest ;;
-    lab) account=aws-lab; region=eu-west-1; env=lab ;;
-    lab-us) account=aws-lab; region=us-east-1; env=lab ;;
-    *) _log_error "Invalid env: $1"; return 1 ;;
-  esac
-  local dir="$code/product-infra/terraform/live/$account/$region/$env"
-  if [ ! -d "$dir" ]; then
-    _log_error "Directory not found: $dir"
-    return 1
-  fi
-  echo $dir
-}
-
-_values_dir() {
-  local env
-  case $1 in
-    us|pus|prod-us|production-us) env=production-us ;;
-    p|prod|production) env=production ;;
-    s|staging) env=staging ;;
-    perf|perftest|dev) env=perftest ;;
-    *) _log_error "Invalid env: $1"; return 1 ;;
-  esac
-  local dir="$code/insight-deploy/envs/$env"
-  if [ ! -d "$dir" ]; then
-    _log_error "Directory not found: $dir"
-    return 1
-  fi
-  echo $dir
-}
-
-pg() {
-  if [ -z "$2" ]; then
-    echo "Usage: $0 <data|bi> <env> [db_name]"
-    return 1
-  fi
-  local key port
-  case $1 in
-    data) key=pg_data_db; port=5432 ;;
-    bi|redshift) key=bi_db; port=5439 ;;
-    *) echo "Invalid db type."; return 1 ;;
-  esac
-
-  local dir=$(_values_dir $2)
-  [ -n "$dir" ] || return 1
-
-  echo "Connecting to local ${fg[green]}$key$reset_color" \
-       "with ${fg[green]}$(basename $dir)$reset_color credentials"
-  local secrets="$code/insight-deploy/envs/$2/secrets.infra.yaml"
-  if [ ! -f "$secrets" ]; then
-    echo "Secret file '$secrets' not found, aborting."
-    return 1
-  fi
-
-  PGPASSWORD=$(sops -d $secrets | yq -r ".global.$key.password") \
-    psql -h localhost -p $port -U $(sops -d $secrets | yq -r ".global.$key.user") $3
-}
-
-alias kafka_pf='kubectl port-forward svc/ni-rta-kafka-proxy 4443'
-
-kafka_url() {
-  if [ -z "$1" ]; then echo "Usage: $0 <env>" && return 1; fi
-  
-  local values_dir=$(_values_dir $1)
-  [ -n "$values_dir" ] || return 1
-  
-  sops -d "$values_dir/secrets.infra.yaml" \
-    | yq -r '.global.kafka_connect.url' \
-    | sed -E 's~https?://([^@]*)@.*~http://\1@localhost:4443~'
-}
-
-kafka_status() {
-  if [ -z "$1" ]; then echo "Usage: $0 <env>" && return 1; fi
-
-  local kafka_connect_url=$(kafka_url $1)
-  for connector in $(http $kafka_connect_url/connectors | jq -r '.[]' | sort); do
-    echo -n "$connector: "
-    http $kafka_connect_url/connectors/$connector/status | jq -r '.connector.state'
-  done
-}
-
-kafka_clean() {
-  if [ -z "$1" ]; then echo "Usage: $0 <env>" && return 1; fi
-
-  local tf_dir=$(_tf_dir $1)
-  [ -n "$tf_dir" ] || return 1
-  local values_dir=$(_values_dir $1)
-  [ -n "$values_dir" ] || return 1
-
-  _log_info "Starting kafka-connect port-forwarding ..."
-  cleanup() { pkill -P $$;  }
-  trap cleanup SIGINT SIGTERM EXIT
-  KUBECONFIG="$values_dir/kubeconfig.yaml" kafka_pf &
-  sleep 3
-
-  _log_info "Retrieving kafka-connect connectors ..."
-  local kafka_connect_url=$(sops -d "$values_dir/secrets.infra.yaml" \
-    | yq -r '.global.kafka_connect.url' \
-    | sed -E 's~https?://([^@]*)@.*~http://\1@localhost:4443~')
-  local existing_connectors=$(http $kafka_connect_url/connectors | jq -r '.[]' | sort)
-
-  _log_info "Retrieving configured connectors form terraform ..."
-  local defined_connectors=$(cd "$tf_dir/ni_product" && terragrunt state list \
-    | grep aiven_kafka_topic | cut -d\" -f2 | sort | sed 's/^/s3-connect-by-date-/')
-  
-  comm -23 \
-    <(echo $existing_connectors) \
-    <(echo $defined_connectors) | \
-    read -d '' connectors
-
-  _log_info "Will delete the following connectors:"
-  echo $connectors
-  echo
-  echo "Do you wanna continue [yN] ?"
-  read -r confirm
-  [[ ! $confirm =~ ^[Yy]$ ]] && return 1
-
-  echo
-  for connector in $(echo $connectors | xargs); do
-    _log_info "Deleting '$connector' ..."
-    http DELETE "$kafka_connect_url/connectors/$connector"
-  done
+# temp helper to fix local symlinks to ci-tools
+fix_ci_tools() {
+  rm ci-tools && ln -s $ni/ci-tools .
 }

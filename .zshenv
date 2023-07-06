@@ -2,21 +2,18 @@
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 
+# Local bin (poetry, ...)
+export PATH="$HOME/.local/bin:$PATH"
+
 # Rust
 export PATH="$HOME/.cargo/bin:$PATH"
-
-# Poetry
-export PATH="$HOME/.poetry/bin:$PATH"
 
 # Brew - gnu-getopt
 export PATH="/usr/local/opt/gnu-getopt/bin:$PATH"
 
-# Brew - go
-export GOPATH=$HOME/go
-export PATH=$GOPATH/bin:$PATH
-
 # Personal env
 export code=~/code
+export ni=~/code/ni
 export PATH="$code/bin:$PATH"
 
 # Spark & Hadoop
