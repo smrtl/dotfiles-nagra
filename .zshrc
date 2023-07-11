@@ -319,11 +319,12 @@ aws_spark() {
 # Kubernetes
 # ------------------------------------------------
 
+export KUBECONTEXT=admin-sso
 kn() {
   if [ -n "$1" ]; then
-    export KUBECMD="kubectl --context admin-sso -n$1"
+    export KUBECMD="kubectl --context $KUBECONTEXT -n$1"
   else
-    export KUBECMD="kubectl --context admin-sso"
+    export KUBECMD="kubectl --context $KUBECONTEXT"
   fi
   alias k="$KUBECMD"
 }
@@ -379,11 +380,9 @@ kx() {
     else
       echo "${fg[red]}Error: kubernetes cluster '$1' not found${reset_color}"
     fi
-
-    k config use-context $(k config get-contexts | cut -b11- | awk '/kubernetes-admin-sso/ {print $1}') >/dev/null
   fi
 
-  local current=$(k config get-contexts | grep '*')
+  local current=$(k config get-contexts | grep $KUBECONTEXT)
   if [ -z "$current" ]; then
     echo "${fg[yellow]}No context${reset_color}"
   else
