@@ -108,7 +108,7 @@ alias tga="tg apply"
 alias jlog="fblog"
 alias jloga="fblog --dump-all"
 alias jlogs="fblog -t@timestamp -a 'exception > stacktrace'"
-alias jlogp="fblog -tasctime -llevelname"
+alias jlogp="fblog -tasctime -llevelname -aexc_info"
 
 # ------------------------------------------------
 # Git & Github
@@ -195,11 +195,18 @@ alias brew='env PATH="${PATH//$PYENV_ROOT\/shims:/}" brew' # disable pyenv for b
 
 pyenv-brew-relink() {
   rm -f $PYENV_ROOT/versions/*-brew
+
   for version in $(brew --cellar)/python*/*; do
-    if [ ! -e $version/bin/python ]; then
-      ln -sf $version/bin/python3 $version/bin/python
+    version_num="${${version##*@}%%/*}"
+    python_bin="bin/python${version_num}"
+
+    if [ -e "$version/$python_bin" ]; then
+      # Python binary found
+      echo "Found ${version##*/}"
+      if [ ! -e "$version/bin/python" ]; then ln -sf "$version/$python_bin" "$version/bin/python"; fi
+      if [ ! -e "$version/bin/python3" ]; then ln -sf "$version/$python_bin" "$version/bin/python3"; fi
+      ln -sf "$version" "$PYENV_ROOT/versions/${version##*/}-brew"
     fi
-    ln -sf "$version" "$PYENV_ROOT/versions/${version##*/}-brew"
   done
 
   pyenv rehash
@@ -316,10 +323,13 @@ aws_spark() {
 }
 
 # ------------------------------------------------
-# Kubernetes
+# Kubernetes & Heml
 # ------------------------------------------------
 
-export KUBECONTEXT=admin-sso
+export KUBECONTEXT=admin
+
+alias helm="/usr/local/bin/helm --kube-context $KUBECONTEXT"
+
 kn() {
   if [ -n "$1" ]; then
     export KUBECMD="kubectl --context $KUBECONTEXT -n$1"
@@ -500,23 +510,15 @@ ksshd() {
   fi
 }
 
+# ksecret [secret] [key]
 ksecret() {
-  if [ -z "$1" ]; then echo "Usage: ksecret <secret> [key]"; return 1; fi
   local secret=$1
   local key=$2
-
-  if [ -z "$key" ]; then
-    local keys=($(k get secret $secret -o jsonpath='{.data}' | jq -r 'keys[]'))
-    if [ ${#keys[@]} -eq 1 ]; then
-      echo "selecting key '${keys[1]}'" >&2
-      key="${keys[1]}"
-    else
-      echo "Available keys in '$secret':"
-      for key in "${keys[@]}"; do echo "  - $key"; done
-    fi
-  fi
-
-  if [ -n "$key" ]; then
+  if [ -z "$secret" ]; then
+    k get secret
+  elif [ -z "$key" ]; then
+    k get secret $secret -o jsonpath='{.data}' | jq 'to_entries | map({(.key): .value | @base64d}) | add'
+  else
     k get secret $secret -o jsonpath="{.data.${key//./\\.}}" | base64 -D
   fi
 }
