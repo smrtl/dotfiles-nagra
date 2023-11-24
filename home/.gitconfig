@@ -1,0 +1,22 @@
+[user]
+	name = Samuel Suter
+	email = samuel.suter@nagra.com
+	signingkey = 8BE72B0AF95323254C5A564F36F0585D0F2FF070
+[diff "sopsdiffer"]
+	textconv = sops -d
+[pager]
+	branch = false
+	stash = false
+[core]
+	pager = less -F -X
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[pull]
+	ff = only
+[commit]
+	gpgsign = true
+[gpg]
+	program = /opt/homebrew/bin/gpg

@@ -2,7 +2,7 @@
 # Zinit
 # ------------------------------------------------
 
-ZINIT_HOME="${HOME}/.local/share/zinit"
+ZINIT_HOME="${HOME}/.local/share/zinit/zinit.git"
 source "${ZINIT_HOME}/zinit.zsh"
 
 # OMZ lib, no wait !
@@ -97,7 +97,7 @@ alias ll="ls -l"
 
 alias gi="grep -i"
 
-catnb() {cat $1 | jq -r '.cells[].source | join("--")'}
+catnb() { cat $1 | jq -r '.cells[].source | join("--")' }
 
 # Terraform/Terragrunt
 alias tf="terraform"
@@ -228,39 +228,14 @@ venv() {
 
 # Micromamba
 # Generated with: micromamba shell init -s zsh -p ~/.micromamba
-export MAMBA_EXE="/usr/local/bin/micromamba";
-export MAMBA_ROOT_PREFIX="/Users/ssuter/.micromamba";
+export MAMBA_EXE="/opt/homebrew/opt/micromamba/bin/micromamba";
+export MAMBA_ROOT_PREFIX="/Users/samuel.suter/.micromamba";
 eval "$("$MAMBA_EXE" shell hook --shell zsh --prefix "$MAMBA_ROOT_PREFIX" 2> /dev/null)"
 alias mamba=micromamba
 
 # ------------------------------------------------
 # AWS
 # ------------------------------------------------
-
-# () {
-#   local -A _aws_config
-
-#   # avoid using aws-cli here as it is very slow
-#   _parse_ini $HOME/.aws/credentials _aws_config
-#   _parse_ini $HOME/.aws/config _aws_config
-
-#   export AWS_REGION="${_aws_config[default___region]}"
-#   export AWS_ACCESS_KEY_ID="${_aws_config[default___aws_access_key_id]}"
-#   export AWS_SECRET_ACCESS_KEY="${_aws_config[default___aws_secret_access_key]}"
-#   export AWS_PAGER=""
-# }
-
-# aws_profile() {
-#   if [ -n "$1" ]; then
-#     export AWS_PROFILE=$1
-#     export AWS_ACCESS_KEY_ID=$(aws configure get $1.aws_access_key_id)
-#     export AWS_SECRET_ACCESS_KEY=$(aws configure get $1.aws_secret_access_key)
-#     export AWS_REGION=$(aws configure get $AWS_PROFILE.region || aws configure get default.region)
-#   fi
-
-#   echo "AWS profile: ${fg[green]}${AWS_PROFILE:-default}${reset_color}"
-#   echo "AWS region: ${fg[green]}${AWS_REGION}${reset_color}"
-# }
 
 # see https://serverfault.com/questions/679989/most-efficient-way-to-batch-delete-s3-files
 aws_ls() {
@@ -559,7 +534,3 @@ ni_env() {
   export RENOVATE_TOKEN=$GITHUB_BOT_TOKEN
 }
 
-# temp helper to fix local symlinks to ci-tools
-fix_ci_tools() {
-  rm ci-tools && ln -s $ni/ci-tools .
-}

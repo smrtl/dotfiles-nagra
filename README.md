@@ -2,6 +2,16 @@
 
 Super basic dotfiles management...
 
+## Some requirements
+
+- `brew install coreutils jq`
+
+- [vim-plug](https://github.com/junegunn/vim-plug)
+  ```
+  curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
+    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+  ```
+
 ## ZSH Configuration files
 
 Loaded in order:
@@ -19,6 +29,8 @@ Loaded in order:
   - it's recommended to use either `.zprofile` or `.zlogin` but not both
 - `.zlogout`
   - read at logout within login shells
+
+See also: https://gist.github.com/Linerre/f11ad4a6a934dcf01ee8415c9457e7b2
 
 ## References
 

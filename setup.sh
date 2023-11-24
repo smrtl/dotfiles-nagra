@@ -2,31 +2,54 @@
 
 set -e
 
-dotfiles_path="$(realpath --relative-to $HOME "$(dirname "$0")")"
-self_name="$(basename "$0")"
 
-### Args parsing
-# from: https://medium.com/@Drew_Stokes/bash-argument-parsing-54f3b81a6a8f
+### Usage
 
+die_usage() {
+  [ -n "$1" ] && echo "Error: $@"
+  echo "Usage: ${0##*/} [options]"
+  echo "Options:"
+  echo "  -d, --dry-run     Do not do anything, just log what would be done"
+  echo "  -n, --no-backup   Do not backup pre-existing files"
+  exit 1
+}
+
+
+### Parse args
+
+args=()
 dry_run=0
-PARAMS=""
-while (( "$#" )); do
-  case "$1" in
-    --dry-run)
+no_backup=0
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -d|--dry-run)
       dry_run=1
-      shift 1
+      shift
       ;;
-    *) # preserve positional arguments
-      PARAMS="$PARAMS $1"
+    -n|--no-backup)
+      no_backup=1
+      shift
+      ;;
+    -*|--*)
+      die_usage "unknown option: $1"
+      ;;
+    *)
+      args+=("$1") # save positional arg
       shift
       ;;
   esac
 done
+set -- "${args[@]}" # restore positional args
 
-# set positional arguments in their proper place
-eval set -- "$PARAMS"
+if [[ -n "$1" ]]; then
+  die_usage "invalid argument: $1"
+fi
 
-### Helpers
+
+### Paths & Helpers
+
+dotfiles_path="$(realpath "$(dirname "$0")")"
+self_name="$(basename "$0")"
 
 log_info() {
   echo -e "$1: \033[32m$2\033[0m"
@@ -37,37 +60,35 @@ log_trace() {
 }
 
 run() {
-  if [ $dry_run -eq 0 ]; then
-    $@
-  else
-    log_trace $@
-  fi
+  if [ $dry_run -eq 0 ]; then "$@"; else log_trace $@; fi
 }
+
 
 ### Main
 
 cd $HOME
 
-git -C $dotfiles_path ls-files --cached --others --exclude-standard --full-name | \
-  grep -Fv \
-    -e $self_name \
-    -e .gitignore \
-    -e README.md \
+git -C $dotfiles_path ls-files --cached --others --exclude-standard --full-name -- home \
   | while read target
 do
-  source="$dotfiles_path/$target"
-  target_dir="$(dirname "$target")"
+  source_file="$dotfiles_path/$target"
+  target_file=${target#home/}
+  target_dir="$(dirname "$target_file")"
 
   # Create target dir if needed
   [ ! -d "$target_dir" ] && run mkdir -p "$target_dir"
 
   # Backup iff target file is not a symlink
-  if [ -f "$target" ] && [ ! -L "$target" ]; then
-    log_info "backup" "$target"
-    run cp "$target" "$target~"
+  if [ -f "$target_file" ] && [ ! -L "$target_file" ]; then
+    if [ $no_backup -eq 0 ]; then
+      log_info "backup" "$target_file"
+      run mv "$target_file" "$target_file~"
+    else
+      run rm "$target_file"
+    fi
   fi
 
-  # create symlink
-  log_info "symlink" "$target"
-  run ln -sf $source $target
+  # Create symlink
+  log_info "symlink" "$target_file"
+  run ln -sf "$source_file" "$target_file"
 done
