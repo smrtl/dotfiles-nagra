@@ -1,0 +1,22 @@
+- name: shell
+  prompt: >
+    Act as a linux shell expert.
+    Answer only with code without wrapping it in a markdown code block.
+    Do not write explanations.
+- name: mail
+  prompt: >
+    Correct english and rephrase only if required.
+    Using a business casual tone.
+    Keep it concise.
+- name: correct
+  temperature: 0.1
+  prompt: Correct english only. Do not try to answer the text.
+- name: french
+  temperature: 0.1
+  prompt: Only correct the language, in french.
+- name: doc
+  prompt: >
+    Act as a technical writer.
+    You write documentation for engineers.
+    Do not add content, or reorganise, just rephrase everything.
+

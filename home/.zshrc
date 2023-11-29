@@ -39,6 +39,12 @@ zinit light-mode as"null" id-as'sdkman' run-atpull \
   atinit"export SDKMAN_DIR=$HOME/.sdkman; source $HOME/.sdkman/bin/sdkman-init.sh" \
   for zdharma-continuum/null
 
+# Spark env
+zinit light-mode as"null" id-as'spark-init' \
+  atload"export SPARK_DIST_CLASSPATH=$(hadoop classpath):$HADOOP_HOME/share/hadoop/tools/lib/*" \
+  atload"export SPARK_EXTRA_CLASSPATH=\$SPARK_DIST_CLASSPATH" \
+  for zdharma-continuum/null
+
 # Keyboard, see https://coderwall.com/p/a8uxma/zsh-iterm2-osx-shortcuts
 bindkey "[D" backward-word
 bindkey "[C" forward-word

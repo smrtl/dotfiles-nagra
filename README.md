@@ -4,9 +4,17 @@ Super basic dotfiles management...
 
 ## Some requirements
 
-- `brew install coreutils jq`
+- [ZInit](https://github.com/zdharma-continuum/zinit)
+
+  ```
+  bash -c "$(curl --fail --show-error --silent \
+    --location https://raw.githubusercontent.com/zdharma-continuum/zinit/HEAD/scripts/install.sh)"
+  ```
+
+- `brew install coreutils jq yq watch`
 
 - [vim-plug](https://github.com/junegunn/vim-plug)
+
   ```
   curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
