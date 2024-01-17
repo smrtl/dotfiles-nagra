@@ -11,7 +11,7 @@ Super basic dotfiles management...
     --location https://raw.githubusercontent.com/zdharma-continuum/zinit/HEAD/scripts/install.sh)"
   ```
 
-- `brew install coreutils jq yq watch`
+- `brew install coreutils jq yq watch bash`
 
 - [vim-plug](https://github.com/junegunn/vim-plug)
 

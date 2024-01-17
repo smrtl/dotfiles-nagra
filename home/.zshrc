@@ -25,10 +25,11 @@ ZSH_THEME_GIT_PROMPT_DIRTY="%{$fg[blue]%}) %{$fg[yellow]%}✗"
 ZSH_THEME_GIT_PROMPT_CLEAN="%{$fg[blue]%})"
 
 # Plugins
+# - to enable NVM lazy load, add `atinit"export NVM_LAZY_LOAD=true"` before "lukechilds/zsh-nvm"
 zinit wait lucid for \
   OMZP::git \
   OMZP::colored-man-pages \
-  atinit"export NVM_LAZY_LOAD=true" lukechilds/zsh-nvm \
+  lukechilds/zsh-nvm \
   davidparsson/zsh-pyenv-lazy \
   atload"zicompinit; zicdreplay" blockf OMZL::completion.zsh
 
@@ -243,6 +244,15 @@ alias mamba=micromamba
 # AWS
 # ------------------------------------------------
 
+aws_secret() {
+  if [ -z "$1" ]; then
+    aws secretsmanager list-secrets --profile 580978913621 | jq -r '.SecretList[].Name'
+  else
+    aws secretsmanager get-secret-value --profile 580978913621 \
+      --query 'SecretString' --output text --secret-id $1 | jq -r ".$2"
+  fi
+}
+
 # see https://serverfault.com/questions/679989/most-efficient-way-to-batch-delete-s3-files
 aws_ls() {
   if [ -z "$1" ]; then
@@ -309,7 +319,7 @@ aws_spark() {
 
 export KUBECONTEXT=admin
 
-alias helm="/usr/local/bin/helm --kube-context $KUBECONTEXT"
+alias helm="/opt/homebrew/bin/helm --kube-context $KUBECONTEXT"
 
 kn() {
   if [ -n "$1" ]; then
@@ -373,11 +383,11 @@ kx() {
     fi
   fi
 
-  local current=$(k config get-contexts | grep $KUBECONTEXT)
+  local current=$(k config get-contexts | grep '*')
   if [ -z "$current" ]; then
     echo "${fg[yellow]}No context${reset_color}"
   else
-    echo "${fg[green]}Current context: ${fg[cyan]}$(echo $current | awk '{print $2 " (" $3 ")"}')${reset_color}"
+    echo "${fg[green]}Current context: ${fg[cyan]}$(echo $current | awk '{print $2 " (" $3 ", " $4 ")"}')${reset_color}"
   fi
 }
 
@@ -528,14 +538,14 @@ ni_env() {
   export LIVY_USER_KEY="$(aws configure get default.aws_access_key_id)"
   export LIVY_USER_SECRET="$(aws configure get default.aws_secret_access_key)"
   # Trainingmill
-  export TRAININGMILL_DOCKER_PASSWORD="$(gopass show quay.io/tokens/nagra+trainingmill)"
+  export TRAININGMILL_DOCKER_PASSWORD="$(aws_secret quayio/trainingmill token)"
   # Nexus
-  export NEXUS_INSIGHTRW_PWD=$(gopass show nexus/insight-rw)
-  export NEXUS_INSIGHTRO_PWD=$(gopass show nexus/insight-ro)
+  export NEXUS_INSIGHTRW_PWD=$(aws_secret nexus/insight-rw password)
+  export NEXUS_INSIGHTRO_PWD=$(aws_secret nexus/insight-ro password)
   export POETRY_HTTP_BASIC_NEXUS_USERNAME=insight-ro
   export POETRY_HTTP_BASIC_NEXUS_PASSWORD=$NEXUS_INSIGHTRO_PWD
   # Github
-  export GITHUB_BOT_TOKEN=$(gopass -o show github.com/nagra-insight-bot/api_token)
+  export GITHUB_BOT_TOKEN=$(aws_secret github/nagra-insight-bot api_token)
   export GITHUB_TOKEN=$GITHUB_BOT_TOKEN
   export RENOVATE_TOKEN=$GITHUB_BOT_TOKEN
 }

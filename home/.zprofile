@@ -10,7 +10,9 @@ export PATH="$HOME/.cargo/bin:$PATH"
 
 # Brew
 export PATH="/opt/homebrew/bin:$PATH"
-export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
+# see `brew coreutils info`
+# export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
+# export MANPATH="/opt/homebrew/opt/coreutils/libexec/gnuman:$MANPATH"
 
 # Personal env
 export code=~/code
