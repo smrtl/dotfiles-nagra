@@ -320,6 +320,7 @@ aws_spark() {
 export KUBECONTEXT=admin
 
 alias helm="/opt/homebrew/bin/helm --kube-context $KUBECONTEXT"
+alias k9s="/opt/homebrew/bin/k9s --kube-context $KUBECONTEXT"
 
 kn() {
   if [ -n "$1" ]; then
