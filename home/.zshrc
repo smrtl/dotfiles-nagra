@@ -253,6 +253,59 @@ aws_secret() {
   fi
 }
 
+s3() {
+  # profiles to customer/env mappings
+  local default_profile=882571264765
+  typeset -A profiles 
+  profiles=(
+    lab 580978913621
+    staging 528524992932
+    production 056782732132
+    altice-lab 882571264765
+  )
+
+  # args processing
+  local ni_bucket_pattern='(^|^s3.?://)ni-data-([^-]+)-([^/-]+)(/.*)?$'
+  local s3_uri='^s3.?(://.+)$'
+  local env=
+  local customer=
+  local profile=
+  local profile_next=
+  local profile_suffix=
+  local aws_cli_args=()
+
+  for arg in "$@"; do
+    if [[ $profile_next -gt 0 ]]; then
+      profile=$arg
+      profile_next=
+    elif [[ $arg == "--admin" ]]; then  # custom arg to use admin profiles
+      profile_suffix=-admin
+    elif [[ $arg == "--profile" ]]; then  # catch manually specified profile
+      profile_next=1
+    elif [[ $arg =~ $ni_bucket_pattern ]]; then  # ni bucket detected
+      customer=$match[2]
+      env=$match[3]
+      aws_cli_args+=("s3://ni-data-$customer-$env${match[4]}")
+    elif [[ $arg =~ $s3_uri ]]; then  # s3 uri
+      aws_cli_args+=("s3${match[1]}")
+    else
+      aws_cli_args+=($arg)
+    fi
+  done
+
+  if [ -z "$profile" ]; then
+    profile="${profiles[$customer-$env]:-${profiles[$env]:-$default_profile}}${profile_suffix}"
+  fi
+
+  local cmd=(aws s3 --profile $profile ${aws_cli_args})
+  echo "${fg[gray]}${cmd}${reset_color}" >&2
+  $cmd
+}
+
+s3a() {
+  s3 --admin $@
+}
+
 # see https://serverfault.com/questions/679989/most-efficient-way-to-batch-delete-s3-files
 aws_ls() {
   if [ -z "$1" ]; then
@@ -320,7 +373,7 @@ aws_spark() {
 export KUBECONTEXT=admin
 
 alias helm="/opt/homebrew/bin/helm --kube-context $KUBECONTEXT"
-alias k9s="/opt/homebrew/bin/k9s --kube-context $KUBECONTEXT"
+alias k9s="/opt/homebrew/bin/k9s --context $KUBECONTEXT"
 
 kn() {
   if [ -n "$1" ]; then
@@ -545,6 +598,8 @@ ni_env() {
   export NEXUS_INSIGHTRO_PWD=$(aws_secret nexus/insight-ro password)
   export POETRY_HTTP_BASIC_NEXUS_USERNAME=insight-ro
   export POETRY_HTTP_BASIC_NEXUS_PASSWORD=$NEXUS_INSIGHTRO_PWD
+  export POETRY_HTTP_BASIC_NEXUS_PASSWORD=$NEXUS_INSIGHTRO_PWD
+  export PIP_INDEX_URL=https://${NEXUS_INSIGHTRO_USERNAME}:${NEXUS_INSIGHTRO_PWD}@nexus.infra.nagra-insight.com/repository/pypi-group/simple/
   # Github
   export GITHUB_BOT_TOKEN=$(aws_secret github/nagra-insight-bot api_token)
   export GITHUB_TOKEN=$GITHUB_BOT_TOKEN
