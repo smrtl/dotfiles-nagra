@@ -246,9 +246,9 @@ alias mamba=micromamba
 
 aws_secret() {
   if [ -z "$1" ]; then
-    aws secretsmanager list-secrets --profile 580978913621 | jq -r '.SecretList[].Name'
+    aws secretsmanager list-secrets --profile 580978913621-admin | jq -r '.SecretList[].Name'
   else
-    aws secretsmanager get-secret-value --profile 580978913621 \
+    aws secretsmanager get-secret-value --profile 580978913621-admin \
       --query 'SecretString' --output text --secret-id $1 | jq -r ".$2"
   fi
 }
