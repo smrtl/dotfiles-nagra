@@ -447,7 +447,7 @@ kx() {
 
 # use AWS SSM to SSH to a k8s node
 kssh() {
-   aws --profile $(k config current-context | cut -d '-' -f1) ssm start-session --target $(k get node $1 -ojson | jq -r ".spec.providerID" | cut -d \/ -f5)
+   aws --profile $(k config current-context | rev | cut -d '-' -f2- | rev) ssm start-session --target $(k get node $1 -ojson | jq -r ".spec.providerID" | cut -d \/ -f5)
 }
 
 kdev() {
