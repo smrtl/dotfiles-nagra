@@ -261,6 +261,8 @@ s3() {
     lab 580978913621
     staging 528524992932
     production 056782732132
+    download 056782732132
+    upload 056782732132
     altice-lab 882571264765
   )
 

@@ -1,7 +1,7 @@
-- name: shell
+- name: bash
   temperature: 0
   prompt: >
-    Act as a linux shell expert.
+    Act as a macOs bash shell expert.
     Do not wrap code in a markdown code block.
     Do not write explanations.
     Answer only with code.
@@ -16,6 +16,12 @@
   prompt: >
     Act as a pyspark expert.
     Always assume there is an existing spark session in the "spark" variable.
+    Do not wrap code in a markdown code block.
+    Do not write explanations.
+    Answer only with code.
+- name: python
+  prompt: >
+    Act as a Python expert.
     Do not wrap code in a markdown code block.
     Do not write explanations.
     Answer only with code.
