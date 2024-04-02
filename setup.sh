@@ -2,6 +2,7 @@
 
 set -e
 
+SYMLINK_FOLDER_MARKER=".dotfiles-symlink-folder"
 
 ### Usage
 
@@ -63,32 +64,56 @@ run() {
   if [ $dry_run -eq 0 ]; then "$@"; else log_trace $@; fi
 }
 
+symlink() {
+  source="$dotfiles_path/$1"
+  target=${1#home/}
+  target_parent="$(dirname "$target")"
+
+  # Create target parent if needed
+  [ ! -d "$target_parent" ] && run mkdir -p "$target_parent"
+
+  # Backup iff target file is not a symlink
+  if [ -e "$target" ] && [ ! -L "$target" ]; then
+    if [ $no_backup -eq 0 ]; then
+      log_info "backup" "$target"
+      run mv "$target" "$target~"
+    else
+      run rm "$target"
+    fi
+  fi
+
+  # Create symlink
+  log_info "symlink" "$target"
+  run ln -sf "$source" "$target"
+}
 
 ### Main
 
 cd $HOME
 
-git -C $dotfiles_path ls-files --cached --others --exclude-standard --full-name -- home \
-  | while read target
-do
-  source_file="$dotfiles_path/$target"
-  target_file=${target#home/}
-  target_dir="$(dirname "$target_file")"
+# List files and identify folders that should be symlinked
+target_files=()
+target_folders=()
 
-  # Create target dir if needed
-  [ ! -d "$target_dir" ] && run mkdir -p "$target_dir"
-
-  # Backup iff target file is not a symlink
-  if [ -f "$target_file" ] && [ ! -L "$target_file" ]; then
-    if [ $no_backup -eq 0 ]; then
-      log_info "backup" "$target_file"
-      run mv "$target_file" "$target_file~"
-    else
-      run rm "$target_file"
-    fi
+while read -r target; do
+  if [[ "${target##*/}" == "$SYMLINK_FOLDER_MARKER" ]]; then
+    target_folders+=("${target%/*}")
+  else
+    target_files+=("$target")
   fi
+done < <(git -C $dotfiles_path ls-files --cached --others --exclude-standard --full-name -- home)
 
-  # Create symlink
-  log_info "symlink" "$target_file"
-  run ln -sf "$source_file" "$target_file"
+# Symlink files if not in a symlinked folder
+IFS=":"
+target_folders_str="${IFS}${target_folders[@]}${IFS}"
+
+for file in "${target_files[@]}"; do
+  if ! [[ "$target_folders_str" =~ "${IFS}${file%/*}${IFS}" ]]; then
+    symlink "$file"
+  fi
+done
+
+# Symlink folders
+for folder in "${target_folders[@]}"; do
+  symlink "$folder"
 done
