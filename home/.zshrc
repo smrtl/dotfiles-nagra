@@ -421,15 +421,29 @@ kn
 alias ka="k --all-namespaces=true"
 
 alias kg="k get"
-alias kgn="kg nodes -o custom-columns-file=$HOME/.config/k8s-node-columns.txt --sort-by=.metadata.creationTimestamp"
-kgnn() {
-  kubectl get nodes -o json | jq -r '
-    .items[] | [
-      .metadata.name | (" " * (50 - length)) + .,
-      (.spec.providerID | capture("/(?<i>[^/]+$)"))["i"],
-      .metadata.labels["node.kubernetes.io/instance-type"]
-    ] | @tsv'
+
+kgn() {
+  kg nodes -o json | jq -r '
+    ([["NAME", "ID", "TYPE", "PROVISIONER", "CREATION"]], (
+      .items | map(
+        select(.spec.providerID | contains("i-")) | [
+          .metadata.name,
+          (.spec.providerID | capture("/(?<i>[^/]+$)")["i"]),
+          .metadata.labels["node.kubernetes.io/instance-type"],
+          .metadata.labels["karpenter.sh/provisioner-name"],
+          .metadata.creationTimestamp
+        ]
+      ) | sort_by(.[3], .[2], .[4])
+    ))[] | [
+      (.[0] | . + (" " * (30 - length))),
+      (.[1] | . + (" " * (20 - length))),
+      (.[2] | . + (" " * (12 - length))),
+      (.[3] | . + (" " * (32 - length))),
+      .[4]
+    ] | join(" ")
+  '
 }
+
 alias kgp="kg pods"
 alias kgd="kg deployments"
 alias kgs="kg services"
