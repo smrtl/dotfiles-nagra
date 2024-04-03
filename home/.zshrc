@@ -253,18 +253,49 @@ aws_secret() {
   fi
 }
 
+# aws_profile <env> [<env>]
+# gets the aws profile corresponding the the env/location
+aws_profile() {
+  local profile
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      d*) profile=301882015541 ;;
+      l*) profile=580978913621 ;;
+      s*) profile=528524992932 ;;
+      p*) profile=056782732132 ;;
+      down*) profile=056782732132 ;;
+      up*) profile=056782732132 ;;
+      altice-lab) profile=882571264765 ;;
+    esac
+    if [ -n "$profile" ]; then
+      echo -n $profile
+      break
+    fi
+    shift
+  done
+}
+
+# aws_region <env>
+# gets the aws region corresponding to the env/location
+aws_region() {
+  case "$1" in
+    *-us) echo us-east-1 ;;
+    *) echo eu-west-1 ;;
+  esac
+}
+
+# aws_ssh <env> <instance>
+# SSH into an EC2 instance using SSM
+aws_ssh() {
+  aws \
+    ssm start-session \
+    --profile $(aws_profile $1)-admin \
+    --region $(aws_region $1) \
+    --target $2
+}
+
 s3() {
-  # profiles to customer/env mappings
   local default_profile=882571264765
-  typeset -A profiles 
-  profiles=(
-    lab 580978913621
-    staging 528524992932
-    production 056782732132
-    download 056782732132
-    upload 056782732132
-    altice-lab 882571264765
-  )
 
   # args processing
   local ni_bucket_pattern='(^|^s3.?://)ni-data-([^-]+)-([^/-]+)(/.*)?$'
@@ -296,7 +327,8 @@ s3() {
   done
 
   if [ -z "$profile" ]; then
-    profile="${profiles[$customer-$env]:-${profiles[$env]:-$default_profile}}${profile_suffix}"
+    profile=$(aws_profile "$customer-$env" "$env")
+    profile=${profile:-$default_profile}${profile_suffix}
   fi
 
   local cmd=(aws s3 --profile $profile ${aws_cli_args})
@@ -390,6 +422,14 @@ alias ka="k --all-namespaces=true"
 
 alias kg="k get"
 alias kgn="kg nodes -o custom-columns-file=$HOME/.config/k8s-node-columns.txt --sort-by=.metadata.creationTimestamp"
+kgnn() {
+  kubectl get nodes -o json | jq -r '
+    .items[] | [
+      .metadata.name | (" " * (50 - length)) + .,
+      (.spec.providerID | capture("/(?<i>[^/]+$)"))["i"],
+      .metadata.labels["node.kubernetes.io/instance-type"]
+    ] | @tsv'
+}
 alias kgp="kg pods"
 alias kgd="kg deployments"
 alias kgs="kg services"
