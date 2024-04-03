@@ -83,8 +83,13 @@ symlink() {
   fi
 
   # Create symlink
-  log_info "symlink" "$target"
-  run ln -sf "$source" "$target"
+  if [ -d "$target" ]; then
+    log_info "symlink dir" "$target/"
+    run ln -sf "$source" "$target_parent"
+  else
+    log_info "symlink" "$target"
+    run ln -sf "$source" "$target"
+  fi
 }
 
 ### Main
