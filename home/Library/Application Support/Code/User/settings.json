@@ -89,7 +89,7 @@
   "css.format.newlineBetweenSelectors": false,
   "css.format.spaceAroundSelectorSeparator": true,
   "diffEditor.ignoreTrimWhitespace": false,
-  "editor.fontFamily": "'FiraCode-Light', Menlo, Monaco, monospace",
+  "editor.fontFamily": "Monaspace Xenon Light",
   "editor.fontLigatures": true,
   "editor.fontSize": 13,
   "editor.formatOnSave": false,
@@ -98,6 +98,7 @@
   "editor.multiCursorModifier": "alt",
   "editor.renderControlCharacters": false,
   "editor.rulers": [100, 120],
+  "editor.stickyScroll.enabled": false,
   "editor.tabCompletion": "on",
   "editor.tabSize": 2,
   "editor.unicodeHighlight.ambiguousCharacters": false,
@@ -231,7 +232,7 @@
   "window.restoreWindows": "all",
   "window.title": "${rootName}${separator}${activeEditorShort}",
   "workbench.activityBar.location": "top",
-  "workbench.colorTheme": "Ayu Mirage Bordered",
+  "workbench.colorTheme": "Ayu Mirage",
   "workbench.editor.closeEmptyGroups": false,
   "workbench.editor.decorations.badges": false,
   "workbench.editor.empty.hint": "hidden",
@@ -244,6 +245,5 @@
   "workbench.settings.editor": "json",
   "workbench.settings.enableNaturalLanguageSearch": false,
   "workbench.startupEditor": "newUntitledFile",
-  "xmlTools.enforcePrettySelfClosingTagOnFormat": true,
-  "editor.stickyScroll.enabled": false
+  "xmlTools.enforcePrettySelfClosingTagOnFormat": true
 }
