@@ -401,7 +401,7 @@ aws_spark() {
 }
 
 # ------------------------------------------------
-# Kubernetes & Heml
+# Kubernetes & Helm
 # ------------------------------------------------
 
 export KUBECONTEXT=admin
@@ -662,3 +662,4 @@ ni_env() {
   export RENOVATE_TOKEN=$GITHUB_BOT_TOKEN
 }
 
+alias balogs='klf -lapp.kubernetes.io/instance=bill-agent,job-name!=bill-agent-init -c bill-agent | jlogp'
