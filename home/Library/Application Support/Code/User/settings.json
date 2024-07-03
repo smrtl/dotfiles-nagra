@@ -89,8 +89,8 @@
   "css.format.newlineBetweenSelectors": false,
   "css.format.spaceAroundSelectorSeparator": true,
   "diffEditor.ignoreTrimWhitespace": false,
-  "editor.fontFamily": "Monaspace Neon Light",
-  "editor.fontLigatures": "'calt', 'liga',  'ss01', 'ss02', 'ss03', 'ss04', 'ss05', 'ss06',  'ss08'",
+  "editor.fontFamily": "'Monaspace Neon', monospace",
+  "editor.fontLigatures": "'calt', 'liga', 'ss01', 'ss02', 'ss03', 'ss04', 'ss05', 'ss06', 'ss08', 'ss09'",
   "editor.fontSize": 13,
   "editor.formatOnSave": false,
   "editor.hideCursorInOverviewRuler": true,
@@ -130,7 +130,6 @@
     "**/__pycache__": true,
     "**/target": true
   },
-  "git-blame.config.showBlameInline": false,
   "git.openRepositoryInParentFolders": "always",
   "git.showActionButton": {
     "commit": false,
@@ -221,7 +220,7 @@
   "telemetry.enableTelemetry": false,
   "terminal.external.osxExec": "iTerm 2.app",
   "terminal.integrated.enableMultiLinePasteWarning": "never",
-  "terminal.integrated.fontFamily": "Monaspace Neon Light",
+  "terminal.integrated.fontFamily": "'Monaspace Neon', monospace",
   "terminal.integrated.fontSize": 13,
   "terminal.integrated.inheritEnv": false,
   "terminal.integrated.lineHeight": 1.3,
@@ -252,5 +251,13 @@
   "yaml.extension.recommendations": false,
   "yaml.format.printWidth": 100,
   "yaml.format.proseWrap": "always",
-  "yaml.hover": false
+  "yaml.hover": false,
+  "mermaid.sequence.mirrorActors": false,
+  "mermaid.vscode.minimap": false,
+  "markdown-mermaid.darkModeTheme": "default",
+  "markdown-preview-github-styles.colorTheme": "light",
+  "markdown.preview.scrollPreviewWithEditor": false,
+  "markdown.preview.scrollEditorWithPreview": false,
+  "terraform.validation.enableEnhancedValidation": false,
+  "git-blame.config.showBlameInline": false
 }
