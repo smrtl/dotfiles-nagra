@@ -98,9 +98,8 @@ _log_info() {
 # General aliases
 # ------------------------------------------------
 
-alias l="ls -a"
-alias la="ls -al"
-alias ll="ls -l"
+alias la="ls -alh"
+alias ll="ls -lh"
 
 alias gi="grep -i"
 
@@ -123,7 +122,7 @@ alias jlogp="fblog -tasctime -llevelname -aexc_info"
 
 alias gbv="git branch -vv"
 alias gbclean="gcm && git pull --prune && echo \"\\nCleaning merged branches:\" && git branch --merged | grep -v master | xargs git branch -d && echo \"\\nCurrent branches:\" && gb"
-alias grbmi="if [ -z \"\$(git status --porcelain)\" ]; then gcm && gl && git checkout - && grbm -i; else echo Not clean; fi"
+alias grbmi="if [ -z \"\$(git status --porcelain)\" ]; then gcm && gl && git checkout - && grbm -i --autosquash; else echo Not clean; fi"
 
 gfix() {
   local commit=$1
@@ -287,6 +286,10 @@ aws_region() {
 # aws_ssh <env> <instance>
 # SSH into an EC2 instance using SSM
 aws_ssh() {
+  if [ $# -ne 2 ]; then
+    echo "Usage: aws_ssh <env> <instance>"
+    return 1
+  fi
   aws \
     ssm start-session \
     --profile $(aws_profile $1)-admin \
@@ -622,6 +625,25 @@ ksecret() {
   else
     k get secret $secret -o jsonpath="{.data.${key//./\\.}}" | base64 -D
   fi
+}
+
+
+klog() {
+  # get deployment -ojson:
+  #   .metadata.annotations["deployment.kubernetes.io/revision"]
+  #     "deployment.kubernetes.io/revision": "78",
+  #   .spec.selector.matchLabels
+  #
+  # describe deployment
+  #   NewReplicaSet:   bill-agent-7f99f4cd69 (2/2 replicas created) 
+  #   NewReplicaSet:   bill-assistant-679f9c7747 (1/1 replicas created)
+  #
+  # k get rs bill-assistant-55b8f8ff98 -o json:
+  # 
+  #
+  # pod labels:
+  #   app.kubernetes.io/name=bill-assistant
+  #   pod-template-hash=679f9c7747
 }
 
 # ------------------------------------------------
