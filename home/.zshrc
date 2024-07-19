@@ -98,8 +98,9 @@ _log_info() {
 # General aliases
 # ------------------------------------------------
 
-alias la="ls -alh"
+alias l="ls -lh"
 alias ll="ls -lh"
+alias la="ls -alh"
 
 alias gi="grep -i"
 
@@ -175,7 +176,6 @@ gh3rd() {
 
   popd >/dev/null
 }
-
 
 # ------------------------------------------------
 # General Helpers
@@ -627,23 +627,36 @@ ksecret() {
   fi
 }
 
-
+# klog name[/comp] [container]
 klog() {
-  # get deployment -ojson:
-  #   .metadata.annotations["deployment.kubernetes.io/revision"]
-  #     "deployment.kubernetes.io/revision": "78",
-  #   .spec.selector.matchLabels
-  #
-  # describe deployment
-  #   NewReplicaSet:   bill-agent-7f99f4cd69 (2/2 replicas created) 
-  #   NewReplicaSet:   bill-assistant-679f9c7747 (1/1 replicas created)
-  #
-  # k get rs bill-assistant-55b8f8ff98 -o json:
-  # 
-  #
-  # pod labels:
-  #   app.kubernetes.io/name=bill-assistant
-  #   pod-template-hash=679f9c7747
+  if [ -z "$1" ]; then
+    echo "Usage: klog NAME[/COMPONENT] [CONTAINER]"
+    return 1
+  fi
+
+  local name="${1%%/*}"
+  local component=
+  [[ "$1" == *"/"* ]] && component="${1#*/}"
+
+  local selectors="app.kubernetes.io/name=$name"
+  if [ -n "$component" ]; then
+    selectors="$selectors,app.kubernetes.io/component=$component"
+  fi
+
+  local container="$2"
+  if [ -z "$container" ]; then
+    local containers=($(k get deployment --selector $selectors -ojson \
+      | jq -r '.items[0].spec.template.spec.containers[].name'))
+    container="${containers[1]}"
+  
+    [[ " ${containers[@]} " =~ " $name " ]] && container="$name"
+    [[ " ${containers[@]} " =~ " $component " ]] && container="$component"
+    [[ " ${containers[@]} " =~ " main " ]] && container="main"
+    [[ " ${containers[@]} " =~ " app " ]] && container="app"
+  fi
+
+  echo "Tailing logs for $selectors; container: $container" >&2
+  klf --selector $selectors -c $container
 }
 
 # ------------------------------------------------
