@@ -238,5 +238,9 @@
     "key": "alt+q",
     "command": "-rewrap.rewrapComment",
     "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+alt+cmd+t",
+    "command": "workbench.action.toggleLightDarkThemes"
   }
 ]
