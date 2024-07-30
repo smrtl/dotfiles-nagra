@@ -135,7 +135,13 @@ gfix() {
   git rebase -i --autosquash ${commit}^
 }
 
+# gh3rd <what> [what]
 gh3rd() {
+  if [ -z "$1" ]; then
+    echo "Usage: gh3rd <dev|lab|prod|infra> [...]"
+    return 1
+  fi
+
   local prs=()
   pushd "$ni/insight-deploy" >/dev/null
 
@@ -143,25 +149,30 @@ gh3rd() {
   for arg in "$@"; do
     local filter='(.labels == []) and (.title | contains("third party"))'
     case "$arg" in
-      i*)
-        echo "Getting 3rd party charts PRs for infra env"
+      inf*)
+        echo "${fg_bold[green]}Getting 3rd party charts PRs for infra env${reset_color}"
         filter+=' and (.title | contains("infra"))'
         ;;
-      p*)
-        echo "Getting 3rd party charts PRs for prod envs"
+      prod*)
+        echo "${fg_bold[green]}Getting 3rd party charts PRs for prod envs${reset_color}"
         filter+=' and (.title | contains("production"))'
         ;;
-      l*)
-        echo "Getting 3rd party charts PRs for lab envs"
+      lab*)
+        echo "${fg_bold[green]}Getting 3rd party charts PRs for lab envs${reset_color}"
         filter+=' and (.title | contains("lab"))'
         ;;
-      *)
-        echo "Getting 3rd party charts PRs for dev envs"
+      dev*|stag*)
+        echo "${fg_bold[green]}Getting 3rd party charts PRs for dev (incl. staging) envs${reset_color}"
         filter+=' and ((.title | contains("dev")) or (.title | contains("staging")))'
+        ;;
+      *)
+        echo "${fg_bold[red]}Unknown argument: ${arg}${reset_color}"
+        return 1
         ;;
     esac
     prs+=($(gh pr list --json number,title,labels --jq '.[] | select('$filter') | .number'))
   done
+  echo ""
 
   # merging PRs
   for pr in "${prs[@]}"; do
@@ -172,6 +183,7 @@ gh3rd() {
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
       gh pr merge -m -d $pr
     fi
+    echo -e "\n"
   done
 
   popd >/dev/null
