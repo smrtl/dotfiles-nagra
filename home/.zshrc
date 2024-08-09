@@ -270,12 +270,12 @@ aws_profile() {
   local profile
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      d*) profile=301882015541 ;;
-      l*) profile=580978913621 ;;
-      s*) profile=528524992932 ;;
-      p*) profile=056782732132 ;;
-      down*) profile=056782732132 ;;
-      up*) profile=056782732132 ;;
+      dev*) profile=301882015541 ;;
+      lab*) profile=580978913621 ;;
+      staging*) profile=528524992932 ;;
+      prod*) profile=056782732132 ;;
+      download) profile=056782732132 ;;
+      upload) profile=056782732132 ;;
       altice-lab) profile=882571264765 ;;
     esac
     if [ -n "$profile" ]; then
@@ -439,22 +439,24 @@ alias kg="k get"
 
 kgn() {
   kg nodes -o json | jq -r '
-    ([["NAME", "ID", "TYPE", "PROVISIONER", "CREATION"]], (
+    ([["NAME", "ID", "TYPE", "ZONE", "PROVISIONER", "CREATION"]], (
       .items | map(
         select(.spec.providerID | contains("i-")) | [
           .metadata.name,
           (.spec.providerID | capture("/(?<i>[^/]+$)")["i"]),
           .metadata.labels["node.kubernetes.io/instance-type"],
+          .metadata.labels["topology.kubernetes.io/zone"],
           .metadata.labels["karpenter.sh/provisioner-name"],
           .metadata.creationTimestamp
         ]
-      ) | sort_by(.[3], .[2], .[4])
+      ) | sort_by(.[4], .[2], .[5])
     ))[] | [
       (.[0] | . + (" " * (46 - length))),
       (.[1] | . + (" " * (20 - length))),
       (.[2] | . + (" " * (12 - length))),
-      (.[3] | . + (" " * (32 - length))),
-      .[4]
+      (.[3] | . + (" " * (12 - length))),
+      (.[4] | . + (" " * (32 - length))),
+      .[5]
     ] | join(" ")
   '
 }
@@ -686,6 +688,7 @@ ni_env() {
   echo " - NEXUS_INSIGHTRO_PWD"
   echo " - POETRY_HTTP_BASIC_NEXUS_USERNAME"
   echo " - POETRY_HTTP_BASIC_NEXUS_PASSWORD"
+  echo " - PIP_INDEX_URL"
   echo " - GITHUB_BOT_TOKEN"
   echo " - GITHUB_TOKEN"
   echo " - RENOVATE_TOKEN"
@@ -702,7 +705,7 @@ ni_env() {
   export POETRY_HTTP_BASIC_NEXUS_USERNAME=insight-ro
   export POETRY_HTTP_BASIC_NEXUS_PASSWORD=$NEXUS_INSIGHTRO_PWD
   export POETRY_HTTP_BASIC_NEXUS_PASSWORD=$NEXUS_INSIGHTRO_PWD
-  export PIP_INDEX_URL=https://${NEXUS_INSIGHTRO_USERNAME}:${NEXUS_INSIGHTRO_PWD}@nexus.infra.nagra-insight.com/repository/pypi-group/simple/
+  export PIP_INDEX_URL=https://insight-ro:${NEXUS_INSIGHTRO_PWD}@nexus.infra.nagra-insight.com/repository/pypi-group/simple/
   # Github
   export GITHUB_BOT_TOKEN=$(aws_secret github/nagra-insight-bot api_token)
   export GITHUB_TOKEN=$GITHUB_BOT_TOKEN
