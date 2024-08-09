@@ -177,6 +177,7 @@
   "python.terminal.activateEnvironment": false,
   "redhat.telemetry.enabled": false,
   "ruff.lint.args": ["--line-length=100"],
+  "scm.showHistoryGraph": false,
   "scm.showIncomingChanges": "never",
   "scm.showOutgoingChanges": "never",
   "search.exclude": {
